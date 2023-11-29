@@ -1,4 +1,4 @@
 *.cys
 .DS_Store
 scmaps/*
-
+__pycache__/
