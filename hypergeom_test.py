@@ -4,6 +4,7 @@ from tqdm import tqdm
 import sys
 import os
 import argparse
+import statsmodels
 from statsmodels.stats.multitest import multipletests
 from scipy.stats import hypergeom, mannwhitneyu, ks_2samp
 import networkx as nx
@@ -49,11 +50,11 @@ def run_hypergeo_enrichr(ont_ts, hierarchygenes, ref_file, fdr_thre=0.01, ji_thr
     fdr_df = pd.DataFrame(fdr.reshape(ref_df.shape), index=ont_ts.index, columns=ref_file.index, dtype=float)
     
     # 1 if greater than threshold     
-    # fdr_df[fdr_df > fdr_thre] = 1
+    fdr_df[fdr_df > fdr_thre] = 1
     # if perfect overlap, counts regardless of significance
     fdr_df[ji_df == 1] = 0
     # if no overlap, doesn't count regardless of significance
-    # fdr_df[ji_df == 0] = 1
+    fdr_df[ji_df == 0] = 1
     # filter out those that don't meet ji threshold
     fdr_df[ji_df < ji_thre] = 1
     return fdr_df
@@ -61,8 +62,8 @@ def run_hypergeo_enrichr(ont_ts, hierarchygenes, ref_file, fdr_thre=0.01, ji_thr
 
 
 parser = argparse.ArgumentParser(description='Analyze each system in the given hierarchy.')
-parser.add_argument('--infname', help='Full path of the input termStats file.')
-parser.add_argument('--refname', help='Full path of the reference termStats file.')
+parser.add_argument('--infname', help='Process number of the test node attributes file')
+parser.add_argument('--refname', help='Process number of the reference node attributes file')
 parser.add_argument('--w_root', action='store_true', help='Do analysis for root term (largest term).')
 parser.add_argument('--minTermSize', default=4, type=int)
 parser.add_argument('--FDRthre', default=1.0, type=float)
@@ -70,42 +71,31 @@ parser.add_argument('--FDRthre', default=1.0, type=float)
 parser.add_argument('--JIthre', default=0.4, type=float)
 args = parser.parse_args()
 
-f = args.infname
-ref_f = args.refname
+f = f"sc_node_attributes_{args.infname}.csv"
+ref_f = f"sc_node_attributes_{args.refname}.csv"
 minTermSize = args.minTermSize
 fdrthre = args.FDRthre
 jithre = args.JIthre
 
-if not os.path.exists(f):
-    print(f)
-    raise ValueError('Input termStats file does not exist!')
+def load_node_attributes_file(f):
+    if not os.path.exists(f):
+        print(f)
+        raise ValueError('Input node attributes file does not exist!')
 
-if os.path.getsize(f) == 0:
-    print('=== No term in hierarchy! ===')
-    sys.exit()
+    if os.path.getsize(f) == 0:
+        print('=== No term in hierarchy! ===')
+        sys.exit()
 
-# df = pd.read_table(f, header=None, index_col=0) ## load the input nodes 
-df = pd.read_csv(f)
-# df = df[["CD_MemberList_Size", "CD_MemberList", "HiDeF_persistence"]]
-df = df[["tsize", "CD_MemberList", "hidef_stability"]]
-df.columns = ['tsize', 'genes', 'stability']
-    
+    df = pd.read_csv(f)
+    df = df[["CD_MemberList_Size", "CD_MemberList", "HiDeF_persistence"]]
+    df.columns = ['tsize', 'genes', 'stability']
+    return df
 
-if not os.path.exists(ref_f):
-    print(ref_f)
-    raise ValueError('Reference termStats file does not exist!')
+df = load_node_attributes_file(f)
+df_ref = load_node_attributes_file(ref_f)
 
-if os.path.getsize(ref_f) == 0:
-    print('=== No term in hierarchy! ===')
-    sys.exit()
-
-df_ref = pd.read_csv(ref_f)
-df_ref = df_ref[["CD_MemberList_Size", "CD_MemberList", "HiDeF_persistence"]]
-# df_ref = df_ref[["tsize", "CD_MemberList", "hidef_stability"]]
-df_ref.columns = ['tsize', 'genes', 'stability']
 root_size = df_ref['tsize'].max()
-hierarchygenes = df_ref[df_ref['tsize'] == root_size]['genes'].values[0].split(' ')  ## select the root node and collect all genes there (all genes included in the map)
-print(f'number of hierarchy genes = {len(hierarchygenes)}')
+hierarchygenes = set(df_ref[df_ref['tsize'] == df_ref['tsize'].max()]['genes'].str.split(' ').sum())
 
 if args.w_root:
     df = df[df['tsize'] >= minTermSize]
@@ -121,5 +111,7 @@ if (df_ref.shape[0] == 0) | (df.shape[0] == 0):
     
 #run the analysis 
 hypergeom_enrich_result = run_hypergeo_enrichr(df.copy(), hierarchygenes, df_ref, fdr_thre=fdrthre, minCompSize=minTermSize,  ji_thre =jithre)
-hypergeom_enrich_result.to_csv(f"{f}_{ref_f}_hypergeom.csv")
+output_file = f'{args.infname}_{args.refname}_hypergeom.csv'
+print(f'output_file = {output_file}')
+hypergeom_enrich_result.to_csv(output_file)
 print('=== finished analyze_hidef_output ===')

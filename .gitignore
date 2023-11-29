@@ -1,3 +1,4 @@
 *.cys
 .DS_Store
+scmaps/*
 
