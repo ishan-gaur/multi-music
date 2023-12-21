@@ -17,7 +17,7 @@ def jaccard(setA, setB):
 # def run_hypergeo_enrichr(ont_ts, ref_df, gene_col="genes", fdr_thre=0.01, ji_thre = 0.4, minCompSize=4):  
 def run_hypergeo_enrichr(test_df, ref_df, gene_col="CD_MemberList", fdr_thre=0.01, ji_thre = 0.4, minCompSize=4):  
     '''
-    BOTH DATAFRAMES SHOULD BE SORTED BY SIZE IN DESCENDING ORDER
+    BOTH DATAFRAMES SHOULD BE SORTED BY SIZE IN DESCENDING ORDER OR THE FULL CELL SHOULD BE THE TOP ENTRY
     test_df: the result hierarchy from the community detection 
     hierarchy genes: total number of genes in the root of the hierarchy 
     ref_df: the reference cellular component/protein complexes table 
